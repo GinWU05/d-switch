@@ -36,8 +36,8 @@ class HotkeyManager {
         let hotKeyID = EventHotKeyID(signature: 0x44535754, id: 1)
 
         let registerStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_M),
-            UInt32(cmdKey | shiftKey),
+            UInt32(kVK_ANSI_Grave),
+            UInt32(optionKey),
             hotKeyID,
             GetApplicationEventTarget(),
             0,
@@ -45,9 +45,9 @@ class HotkeyManager {
         )
 
         if registerStatus != noErr {
-            NSLog("[D-Switch] Failed to register hotkey Cmd+Shift+M (status: \(registerStatus)). The shortcut may conflict with another app. Use the menu bar item to move the cursor.")
+            NSLog("[D-Switch] Failed to register hotkey Option+` (status: \(registerStatus)). The shortcut may conflict with another app. Use the menu bar item to move the cursor.")
         } else {
-            NSLog("[D-Switch] Registered global hotkey: Cmd+Shift+M")
+            NSLog("[D-Switch] Registered global hotkey: Option+`")
         }
     }
 

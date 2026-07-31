@@ -53,7 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         titleItem.isEnabled = false
         menu.addItem(titleItem)
 
-        let shortcutItem = NSMenuItem(title: "\u{2318}\u{21E7}M  or  4-finger tap", action: nil, keyEquivalent: "")
+        let shortcutItem = NSMenuItem(title: "\u{2325}`  or  4-finger tap", action: nil, keyEquivalent: "")
         shortcutItem.isEnabled = false
         menu.addItem(shortcutItem)
 
