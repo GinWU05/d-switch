@@ -110,13 +110,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let screens = displayManager.orderedScreens()
         guard let target = cursorMover.nextScreen(from: screens) else { return }
 
-        // Landing point: AX focus point → window center → screen center
-        let landingPoint: CGPoint
-        if isAutoFocusEnabled, let result = windowFocusManager.focusTopWindow(on: target) {
-            landingPoint = result.cursorTarget
-        } else {
-            landingPoint = cursorMover.screenCenter(target)
+        // Keep window activation optional, but always land at the exact screen center.
+        if isAutoFocusEnabled {
+            _ = windowFocusManager.focusTopWindow(on: target)
         }
+        let landingPoint = cursorMover.screenCenter(target)
 
         cursorMover.warpCursor(to: landingPoint)
         overlayManager.showHint(at: landingPoint, on: target)
