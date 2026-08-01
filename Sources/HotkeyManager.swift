@@ -3,11 +3,29 @@ import Carbon
 
 class HotkeyManager {
 
-    private var hotKeyRef: EventHotKeyRef?
-    private var eventHandlerRef: EventHandlerRef?
-    fileprivate var onHotkey: (() -> Void)?
+    static let displayKeyCodes: [UInt32] = [
+        UInt32(kVK_ANSI_1),
+        UInt32(kVK_ANSI_2),
+        UInt32(kVK_ANSI_3),
+        UInt32(kVK_ANSI_4),
+        UInt32(kVK_ANSI_5),
+        UInt32(kVK_ANSI_6),
+        UInt32(kVK_ANSI_7),
+        UInt32(kVK_ANSI_8),
+        UInt32(kVK_ANSI_9),
+    ]
+    static let maximumDisplayHotkeys = displayKeyCodes.count
 
-    func register(callback: @escaping () -> Void) {
+    private var hotKeyRefs: [EventHotKeyRef] = []
+    private var eventHandlerRef: EventHandlerRef?
+    fileprivate var onHotkey: ((Int) -> Void)?
+
+    static func displayIndex(forHotkeyID id: UInt32) -> Int? {
+        guard id >= 1 && id <= UInt32(maximumDisplayHotkeys) else { return nil }
+        return Int(id - 1)
+    }
+
+    func register(displayCount: Int, callback: @escaping (Int) -> Void) {
         unregister()
         self.onHotkey = callback
 
@@ -32,30 +50,34 @@ class HotkeyManager {
             return
         }
 
-        // "DSWT" as FourCharCode: D=0x44 S=0x53 W=0x57 T=0x54
-        let hotKeyID = EventHotKeyID(signature: 0x44535754, id: 1)
+        let registeredCount = min(max(displayCount, 0), Self.maximumDisplayHotkeys)
+        for displayIndex in 0..<registeredCount {
+            // "DSWT" as FourCharCode: D=0x44 S=0x53 W=0x57 T=0x54
+            let hotKeyID = EventHotKeyID(signature: 0x44535754, id: UInt32(displayIndex + 1))
+            var hotKeyRef: EventHotKeyRef?
+            let registerStatus = RegisterEventHotKey(
+                Self.displayKeyCodes[displayIndex],
+                UInt32(optionKey),
+                hotKeyID,
+                GetApplicationEventTarget(),
+                0,
+                &hotKeyRef
+            )
 
-        let registerStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_Grave),
-            UInt32(optionKey),
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &hotKeyRef
-        )
-
-        if registerStatus != noErr {
-            NSLog("[D-Switch] Failed to register hotkey Option+` (status: \(registerStatus)). The shortcut may conflict with another app. Use the menu bar item to move the cursor.")
-        } else {
-            NSLog("[D-Switch] Registered global hotkey: Option+`")
+            if registerStatus != noErr {
+                NSLog("[D-Switch] Failed to register hotkey Option+\(displayIndex + 1) (status: \(registerStatus)). The shortcut may conflict with another app.")
+            } else if let hotKeyRef {
+                hotKeyRefs.append(hotKeyRef)
+                NSLog("[D-Switch] Registered global hotkey: Option+\(displayIndex + 1)")
+            }
         }
     }
 
     func unregister() {
-        if let ref = hotKeyRef {
+        for ref in hotKeyRefs {
             UnregisterEventHotKey(ref)
-            hotKeyRef = nil
         }
+        hotKeyRefs.removeAll()
         if let ref = eventHandlerRef {
             RemoveEventHandler(ref)
             eventHandlerRef = nil
@@ -71,15 +93,31 @@ class HotkeyManager {
 // C-compatible callback — must not capture context
 private func carbonHotkeyHandler(
     _: EventHandlerCallRef?,
-    _: EventRef?,
+    event: EventRef?,
     userData: UnsafeMutableRawPointer?
 ) -> OSStatus {
-    guard let userData = userData else {
+    guard let userData, let event else {
         return OSStatus(eventNotHandledErr)
     }
+
+    var hotKeyID = EventHotKeyID()
+    let status = GetEventParameter(
+        event,
+        EventParamName(kEventParamDirectObject),
+        EventParamType(typeEventHotKeyID),
+        nil,
+        MemoryLayout<EventHotKeyID>.size,
+        nil,
+        &hotKeyID
+    )
+    guard status == noErr,
+          let displayIndex = HotkeyManager.displayIndex(forHotkeyID: hotKeyID.id) else {
+        return OSStatus(eventNotHandledErr)
+    }
+
     let manager = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
     DispatchQueue.main.async {
-        manager.onHotkey?()
+        manager.onHotkey?(displayIndex)
     }
     return noErr
 }

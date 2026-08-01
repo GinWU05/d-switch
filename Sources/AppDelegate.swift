@@ -4,7 +4,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var statusItem: NSStatusItem!
     private let hotkeyManager = HotkeyManager()
-    private let gestureManager = GestureManager()
     private let displayManager = DisplayManager()
     private let cursorMover = CursorMover()
     private let windowFocusManager = WindowFocusManager()
@@ -16,8 +15,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: [Self.autoFocusKey: true])
         setupMenuBar()
-        registerHotkey()
-        startGestureDetection()
+        registerHotkeys()
         checkAccessibility()
     }
 
@@ -53,15 +51,23 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         titleItem.isEnabled = false
         menu.addItem(titleItem)
 
-        let shortcutItem = NSMenuItem(title: "\u{2325}`  or  4-finger tap", action: nil, keyEquivalent: "")
+        let displayCount = min(displayManager.orderedScreens().count, HotkeyManager.maximumDisplayHotkeys)
+        let shortcutItem = NSMenuItem(title: "\u{2325}1…\u{2325}\(displayCount) select display", action: nil, keyEquivalent: "")
         shortcutItem.isEnabled = false
         menu.addItem(shortcutItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        let moveItem = NSMenuItem(title: "Move Cursor Now", action: #selector(moveCursorAction), keyEquivalent: "")
-        moveItem.target = self
-        menu.addItem(moveItem)
+        for displayIndex in 0..<displayCount {
+            let moveItem = NSMenuItem(
+                title: "Move Cursor to Display \(displayIndex + 1)",
+                action: #selector(moveCursorToDisplayAction(_:)),
+                keyEquivalent: ""
+            )
+            moveItem.target = self
+            moveItem.representedObject = displayIndex
+            menu.addItem(moveItem)
+        }
 
         autoFocusItem = NSMenuItem(title: "Auto-Focus Window", action: #selector(toggleAutoFocus), keyEquivalent: "")
         autoFocusItem.target = self
@@ -86,29 +92,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Hotkey
 
-    private func registerHotkey() {
-        hotkeyManager.register { [weak self] in
-            self?.moveCursor()
-        }
-    }
-
-    // MARK: - Gesture
-
-    private func startGestureDetection() {
-        gestureManager.start { [weak self] in
-            self?.moveCursor()
+    private func registerHotkeys() {
+        let displayCount = displayManager.orderedScreens().count
+        hotkeyManager.register(displayCount: displayCount) { [weak self] displayIndex in
+            self?.moveCursor(toDisplayAt: displayIndex)
         }
     }
 
     // MARK: - Cursor Movement
 
-    @objc private func moveCursorAction() {
-        moveCursor()
+    @objc private func moveCursorToDisplayAction(_ sender: NSMenuItem) {
+        guard let displayIndex = sender.representedObject as? Int else { return }
+        moveCursor(toDisplayAt: displayIndex)
     }
 
-    private func moveCursor() {
+    private func moveCursor(toDisplayAt displayIndex: Int) {
         let screens = displayManager.orderedScreens()
-        guard let target = cursorMover.nextScreen(from: screens) else { return }
+        guard screens.indices.contains(displayIndex) else {
+            NSLog("[D-Switch] Display \(displayIndex + 1) is not connected")
+            return
+        }
+        let target = screens[displayIndex]
 
         // Keep window activation optional, but always land at the exact screen center.
         if isAutoFocusEnabled {
