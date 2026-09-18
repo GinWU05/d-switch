@@ -1,6 +1,6 @@
 import Cocoa
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var statusItem: NSStatusItem!
     private let hotkeyManager = HotkeyManager()
@@ -11,11 +11,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private static let autoFocusKey = "autoFocusTopWindow"
     private var autoFocusItem: NSMenuItem!
+    private var shortcutItem: NSMenuItem!
+    private var displayMenuItems: [NSMenuItem] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: [Self.autoFocusKey: true])
         setupMenuBar()
-        registerHotkeys()
+        refreshDisplays()
+        displayManager.startObservingChanges { [weak self] in
+            self?.refreshDisplays()
+        }
         checkAccessibility()
     }
 
@@ -51,14 +56,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         titleItem.isEnabled = false
         menu.addItem(titleItem)
 
-        let displayCount = min(displayManager.orderedScreens().count, HotkeyManager.maximumDisplayHotkeys)
-        let shortcutItem = NSMenuItem(title: "\u{2325}1…\u{2325}\(displayCount) select display", action: nil, keyEquivalent: "")
+        shortcutItem = NSMenuItem(title: DisplayManager.shortcutSummaryTitle(displayCount: 1), action: nil, keyEquivalent: "")
         shortcutItem.isEnabled = false
         menu.addItem(shortcutItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        for displayIndex in 0..<displayCount {
+        // All nine items exist up front; refreshDisplays() only toggles visibility.
+        displayMenuItems = (0..<HotkeyManager.maximumDisplayHotkeys).map { displayIndex in
             let moveItem = NSMenuItem(
                 title: "Move Cursor to Display \(displayIndex + 1)",
                 action: #selector(moveCursorToDisplayAction(_:)),
@@ -66,13 +71,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
             moveItem.target = self
             moveItem.representedObject = displayIndex
+            moveItem.isHidden = true
             menu.addItem(moveItem)
+            return moveItem
         }
 
         autoFocusItem = NSMenuItem(title: "Auto-Focus Window", action: #selector(toggleAutoFocus), keyEquivalent: "")
         autoFocusItem.target = self
         autoFocusItem.state = isAutoFocusEnabled ? .on : .off
         menu.addItem(autoFocusItem)
+
+        let refreshItem = NSMenuItem(title: "Refresh Displays", action: #selector(refreshDisplaysAction), keyEquivalent: "")
+        refreshItem.target = self
+        menu.addItem(refreshItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -87,13 +98,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         quitItem.target = self
         menu.addItem(quitItem)
 
+        menu.delegate = self
         statusItem.menu = menu
+    }
+
+    /// Keeps the menu in sync with the current screen list when opened; hotkeys are
+    /// only re-registered through refreshDisplays().
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        let count = DisplayManager.hotkeyDisplayCount(forScreenCount: displayManager.orderedScreens().count)
+        guard count > 0 else { return }
+        updateDisplayMenuItems(displayCount: count)
+    }
+
+    private func updateDisplayMenuItems(displayCount: Int) {
+        shortcutItem.title = DisplayManager.shortcutSummaryTitle(displayCount: displayCount)
+        for (displayIndex, item) in displayMenuItems.enumerated() {
+            item.isHidden = displayIndex >= displayCount
+        }
+    }
+
+    // MARK: - Display Refresh
+
+    /// Single entry point for launch, automatic change detection, and the manual menu action.
+    private func refreshDisplays() {
+        let count = DisplayManager.hotkeyDisplayCount(forScreenCount: displayManager.orderedScreens().count)
+        guard count > 0 else {
+            // Transient empty screen list (wake, clamshell) — keep the previous state.
+            NSLog("[D-Switch] Display refresh skipped: no screens reported")
+            return
+        }
+        updateDisplayMenuItems(displayCount: count)
+        registerHotkeys(displayCount: count)
+        NSLog("[D-Switch] Displays refreshed: \(count) display(s)")
+    }
+
+    @objc private func refreshDisplaysAction() {
+        displayManager.cancelPendingChange()
+        refreshDisplays()
     }
 
     // MARK: - Hotkey
 
-    private func registerHotkeys() {
-        let displayCount = displayManager.orderedScreens().count
+    private func registerHotkeys(displayCount: Int) {
         hotkeyManager.register(displayCount: displayCount) { [weak self] displayIndex in
             self?.moveCursor(toDisplayAt: displayIndex)
         }

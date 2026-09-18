@@ -10,6 +10,8 @@ A small macOS menu-bar utility that moves the mouse cursor directly to a numbere
 
 Displays use the order provided by macOS (`NSScreen.screens`): the main display is number 1, followed by the remaining displays in system order. Each shortcut moves the cursor to the selected display center, focuses its topmost window when enabled, and shows a brief ring animation.
 
+Connecting or disconnecting a display is detected automatically — the shortcuts and menu update without relaunching D-Switch.
+
 ## Build & Run
 
 Requires macOS 14+ and Xcode Command Line Tools (`xcode-select --install`).
@@ -31,6 +33,7 @@ Core functionality works without special permissions. For the best experience, g
 
 - **Move Cursor to Display N** — jump directly to the selected display
 - **Auto-Focus Window** — toggle automatic window focusing
+- **Refresh Displays** — re-scan connected displays and re-register Option+1…N shortcuts (also happens automatically when displays are connected or disconnected)
 - **Quit** — exit D-Switch
 
 ## How I Built It

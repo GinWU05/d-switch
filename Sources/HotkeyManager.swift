@@ -20,6 +20,8 @@ class HotkeyManager {
     private var eventHandlerRef: EventHandlerRef?
     fileprivate var onHotkey: ((Int) -> Void)?
 
+    var registeredHotkeyCount: Int { hotKeyRefs.count }
+
     static func displayIndex(forHotkeyID id: UInt32) -> Int? {
         guard id >= 1 && id <= UInt32(maximumDisplayHotkeys) else { return nil }
         return Int(id - 1)
@@ -75,7 +77,10 @@ class HotkeyManager {
 
     func unregister() {
         for ref in hotKeyRefs {
-            UnregisterEventHotKey(ref)
+            let unregisterStatus = UnregisterEventHotKey(ref)
+            if unregisterStatus != noErr {
+                NSLog("[D-Switch] Failed to unregister hotkey (status: \(unregisterStatus))")
+            }
         }
         hotKeyRefs.removeAll()
         if let ref = eventHandlerRef {

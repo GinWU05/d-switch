@@ -7,7 +7,7 @@ Sources/
   main.swift                   App entry point
   AppDelegate.swift            Menu bar setup, orchestration
   HotkeyManager.swift          Carbon-based per-display global hotkeys
-  DisplayManager.swift         Screen enumeration and ordering
+  DisplayManager.swift         Screen enumeration, ordering, and change observation
   CursorMover.swift            Coordinate math and cursor warping
   WindowFocusManager.swift     Detect + activate topmost window on target display
   OverlayFeedbackManager.swift Visual feedback overlay
@@ -18,6 +18,8 @@ No third-party dependencies. Uses Carbon Event Manager for global hotkeys, CoreG
 ## Display Ordering
 
 Display numbers preserve the order supplied by macOS through `NSScreen.screens`. The main display is number 1; remaining displays follow the system order. The list is read again whenever a shortcut is triggered.
+
+D-Switch observes `NSApplication.didChangeScreenParametersNotification` to detect displays being connected, disconnected, or rearranged. Because macOS posts this notification in bursts, the changes are debounced (~0.5s) before D-Switch refreshes the display menu items and re-registers the Option+1…N hotkeys for the current display count. The **Refresh Displays** menu item runs the same refresh path immediately on demand.
 
 ## Cursor Positioning & Auto-Focus
 
@@ -43,4 +45,4 @@ After the cursor moves, a brief ring animation appears at the landing position:
 - **Launch at Login** is listed but not yet wired up. You can add D-Switch to Login Items manually in System Settings.
 - If another app registers one of the global shortcuts, D-Switch logs a warning and remains usable via the menu bar for that display.
 - The visual hint uses the system accent color. If your accent color has low contrast against your wallpaper, the hint may be less visible.
-- Single-display setups support Option+1 and the matching menu action.
+- Single-display setups support Option+1 and the matching menu action. Option+2… become available automatically when more displays connect.
