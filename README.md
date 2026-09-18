@@ -25,6 +25,16 @@ make clean   # Remove build artifacts
 
 The app bundle is created at `build/D-Switch.app`.
 
+### Code signing
+
+`make build` signs with a local identity named **D-Switch Dev Signing** if one exists, otherwise ad-hoc. A stable identity keeps the Accessibility grant across rebuilds (ad-hoc signatures change every build, so macOS forgets the permission). To create one:
+
+```sh
+make signing-identity   # generates + trusts a self-signed code-signing cert (asks for your login password once)
+```
+
+Override with `make build SIGN_IDENTITY="Developer ID Application: …"`.
+
 ## Permissions
 
 Core functionality works without special permissions. For the best experience, grant **Accessibility** permission in **System Settings > Privacy & Security > Accessibility** — this allows D-Switch to focus windows and locate text carets on the target display. D-Switch opens the Accessibility pane once on first launch if permission is missing; afterwards use **Open Accessibility Settings…** in the menu.
