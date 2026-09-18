@@ -8,12 +8,13 @@ Sources/
   AppDelegate.swift            Menu bar setup, orchestration
   HotkeyManager.swift          Carbon-based per-display global hotkeys
   DisplayManager.swift         Screen enumeration, ordering, and change observation
+  LoginItemManager.swift       Launch at Login via SMAppService
   CursorMover.swift            Coordinate math and cursor warping
   WindowFocusManager.swift     Detect + activate topmost window on target display
   OverlayFeedbackManager.swift Visual feedback overlay
 ```
 
-No third-party dependencies. Uses Carbon Event Manager for global hotkeys, CoreGraphics for cursor movement, and AppKit/QuartzCore for the overlay animation.
+No third-party dependencies. Uses Carbon Event Manager for global hotkeys, CoreGraphics for cursor movement, AppKit/QuartzCore for the overlay animation, and ServiceManagement for the login item.
 
 ## Display Ordering
 
@@ -42,7 +43,7 @@ After the cursor moves, a brief ring animation appears at the landing position:
 ## Known Limitations
 
 - **Shortcuts are fixed** at Option+1 through Option+9. User customization is not yet implemented.
-- **Launch at Login** is listed but not yet wired up. You can add D-Switch to Login Items manually in System Settings.
+- **Launch at Login** uses `SMAppService.mainApp`; macOS may reject registration when the bundle is not in `/Applications` (an alert points to System Settings → General → Login Items).
 - If another app registers one of the global shortcuts, D-Switch logs a warning and remains usable via the menu bar for that display.
 - The visual hint uses the system accent color. If your accent color has low contrast against your wallpaper, the hint may be less visible.
 - Single-display setups support Option+1 and the matching menu action. Option+2… become available automatically when more displays connect.

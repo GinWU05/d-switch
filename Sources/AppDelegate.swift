@@ -10,9 +10,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let overlayManager = OverlayFeedbackManager()
 
     private static let autoFocusKey = "autoFocusTopWindow"
+    private static let didPromptAccessibilityKey = "didPromptAccessibility"
     private var autoFocusItem: NSMenuItem!
     private var shortcutItem: NSMenuItem!
     private var displayMenuItems: [NSMenuItem] = []
+    private var launchAtLoginItem: NSMenuItem!
+    private var accessibilityStatusItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: [Self.autoFocusKey: true])
@@ -87,10 +90,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        // TODO: Launch at Login
-        let launchItem = NSMenuItem(title: "Launch at Login", action: nil, keyEquivalent: "")
-        launchItem.isEnabled = false
-        menu.addItem(launchItem)
+        launchAtLoginItem = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        launchAtLoginItem.target = self
+        launchAtLoginItem.state = LoginItemManager.isEnabled ? .on : .off
+        menu.addItem(launchAtLoginItem)
+
+        accessibilityStatusItem = NSMenuItem(title: accessibilityStatusTitle(), action: nil, keyEquivalent: "")
+        accessibilityStatusItem.isEnabled = false
+        menu.addItem(accessibilityStatusItem)
+
+        let accessibilityItem = NSMenuItem(title: "Open Accessibility Settings\u{2026}", action: #selector(openAccessibilitySettings), keyEquivalent: "")
+        accessibilityItem.target = self
+        menu.addItem(accessibilityItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -102,9 +113,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
     }
 
-    /// Keeps the menu in sync with the current screen list when opened; hotkeys are
+    /// Keeps the menu in sync with live system state when opened; hotkeys are
     /// only re-registered through refreshDisplays().
     func menuNeedsUpdate(_ menu: NSMenu) {
+        launchAtLoginItem.state = LoginItemManager.isEnabled ? .on : .off
+        accessibilityStatusItem.title = accessibilityStatusTitle()
+
         let count = DisplayManager.hotkeyDisplayCount(forScreenCount: displayManager.orderedScreens().count)
         guard count > 0 else { return }
         updateDisplayMenuItems(displayCount: count)
@@ -175,19 +189,56 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         autoFocusItem.state = isAutoFocusEnabled ? .on : .off
     }
 
+    // MARK: - Launch at Login
+
+    @objc private func toggleLaunchAtLogin() {
+        let target = !LoginItemManager.isEnabled
+        if !LoginItemManager.setEnabled(target) {
+            let alert = NSAlert()
+            alert.messageText = "Couldn't update Launch at Login"
+            alert.informativeText = "macOS rejected the change. You can manage login items in System Settings \u{2192} General \u{2192} Login Items."
+            alert.alertStyle = .warning
+            alert.runModal()
+        }
+        launchAtLoginItem.state = LoginItemManager.isEnabled ? .on : .off
+    }
+
     // MARK: - Permissions
 
-    private func checkAccessibility() {
+    private func isAccessibilityTrusted() -> Bool {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): false] as CFDictionary
-        let trusted = AXIsProcessTrustedWithOptions(options)
-        if trusted {
+        return AXIsProcessTrustedWithOptions(options)
+    }
+
+    private func accessibilityStatusTitle() -> String {
+        isAccessibilityTrusted() ? "Accessibility: Enabled" : "Accessibility: Not Granted"
+    }
+
+    private func checkAccessibility() {
+        let defaults = UserDefaults.standard
+        if isAccessibilityTrusted() {
             NSLog("[D-Switch] Accessibility: trusted")
-        } else {
-            NSLog("[D-Switch] Accessibility: not trusted — opening System Settings. Grant access to enable precise focus-point detection.")
-            // Open System Settings → Accessibility pane directly
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-            }
+            defaults.set(true, forKey: Self.didPromptAccessibilityKey)
+            return
+        }
+        // Auto-open System Settings only on the first launch where permission is missing.
+        // Afterwards rely on the menu item so a stale trust entry doesn't reopen Settings every launch.
+        if defaults.bool(forKey: Self.didPromptAccessibilityKey) {
+            NSLog("[D-Switch] Accessibility: not trusted — use the menu to open Settings.")
+            return
+        }
+        NSLog("[D-Switch] Accessibility: not trusted — opening System Settings once.")
+        defaults.set(true, forKey: Self.didPromptAccessibilityKey)
+        openAccessibilityPane()
+    }
+
+    @objc private func openAccessibilitySettings() {
+        openAccessibilityPane()
+    }
+
+    private func openAccessibilityPane() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
         }
     }
 

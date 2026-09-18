@@ -8,7 +8,7 @@ TEST_EXECUTABLE = $(BUILD_DIR)/HotkeyConfigurationTests
 ARCH       := $(shell uname -m)
 TARGET     := $(ARCH)-apple-macos14.0
 SWIFT_FLAGS = -swift-version 5 -target $(TARGET) -O \
-              -framework Cocoa -framework Carbon
+              -framework Cocoa -framework Carbon -framework ServiceManagement
 
 .PHONY: build test run clean
 

@@ -27,13 +27,15 @@ The app bundle is created at `build/D-Switch.app`.
 
 ## Permissions
 
-Core functionality works without special permissions. For the best experience, grant **Accessibility** permission in **System Settings > Privacy & Security > Accessibility** — this allows D-Switch to focus windows and locate text carets on the target display.
+Core functionality works without special permissions. For the best experience, grant **Accessibility** permission in **System Settings > Privacy & Security > Accessibility** — this allows D-Switch to focus windows and locate text carets on the target display. D-Switch opens the Accessibility pane once on first launch if permission is missing; afterwards use **Open Accessibility Settings…** in the menu.
 
 ## Menu Bar
 
 - **Move Cursor to Display N** — jump directly to the selected display
 - **Auto-Focus Window** — toggle automatic window focusing
 - **Refresh Displays** — re-scan connected displays and re-register Option+1…N shortcuts (also happens automatically when displays are connected or disconnected)
+- **Launch at Login** — register/unregister D-Switch as a login item
+- **Accessibility: …** — shows whether Accessibility permission is granted; **Open Accessibility Settings…** jumps to the system pane
 - **Quit** — exit D-Switch
 
 ## How I Built It
